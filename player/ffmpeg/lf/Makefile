@@ -1,10 +1,11 @@
 
 PRODUCT := lf
+PRODUCT_LIBS := -lavformat
 
 CXX := g++
 LINKER := g++
 INCDIRS := -I.
-CXXFLAGS := -std=c++11 -Wall -Wextra
+CXXFLAGS := -std=c++11 -Wall -Wextra -g
 
 SRCFILES := $(wildcard *.cpp) 
 OBJFILES := $(patsubst %.cpp,%.o,$(SRCFILES))
@@ -18,7 +19,7 @@ clean:
 	rm -f $(OBJFILES) $(DEPFILES) $(PRODUCT)
 
 $(PRODUCT): $(OBJFILES)
-	$(LINKER) $^ -o $@
+	$(LINKER) -g $^ -o $@ $(PRODUCT_LIBS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INCDIRS) -c $< -o $@
