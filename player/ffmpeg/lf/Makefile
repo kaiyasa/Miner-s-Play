@@ -10,6 +10,13 @@ SRCFILES := $(wildcard *.cpp)
 OBJFILES := $(patsubst %.cpp,%.o,$(SRCFILES))
 DEPFILES := $(patsubst %.cpp,%.d,$(SRCFILES))
 
+.PHONY: all clean
+
+all: $(PRODUCT)
+
+clean:
+	rm -f $(OBJFILES) $(DEPFILES) $(PRODUCT)
+
 $(PRODUCT): $(OBJFILES)
 	$(LINKER) $^ -o $@
 
@@ -17,6 +24,6 @@ $(PRODUCT): $(OBJFILES)
 	$(CXX) $(CXXFLAGS) $(INCDIRS) -c $< -o $@
 
 %.d: %.cpp
-	$(CXX) $(INCDIRS) -MM $< > $@
+	$(CXX) $(INCDIRS) -MM $< | sed 's/^/$@ /' > $@
 
 -include $(DEPFILES)
