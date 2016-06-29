@@ -1,5 +1,5 @@
 
-progs=hello chello keyb win
+progs=hello chello keyb win q
 
 all: $(progs) win q
 
