@@ -1,7 +1,7 @@
 
 progs=hello chello keyb win
 
-all: $(progs) win
+all: $(progs) win q
 
 clean:
 	rm -f $(progs)
@@ -17,3 +17,6 @@ keyb: keyb.c
 
 win: win.c
 	$(CC) -o $@ $< -lncurses
+
+q: q.cpp
+	$(CXX) -std=c++11 -g -o $@ $< -lncurses -lspeechd
