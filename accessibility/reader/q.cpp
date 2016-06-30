@@ -1,7 +1,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdio.h>
+#include <cstdio>
 
 #include <ncurses.h>
 
@@ -14,27 +14,72 @@ typedef std::vector<std::string> Lines;
 
 using namespace std;
 
-Lines create() {
-    char line[100];
-    Lines result;
+class Speech {
+  public:
+    bool connect() {
+        if (!isConnected())
+            channel = spd_open(appName, NULL, NULL, SPD_MODE_SINGLE);
 
-    for(int i = 0; i < 100; ++i) {
-        snprintf(line, 100, "line %d", i + 1);
-        result.push_back(string(line));
+        return isConnected();
     }
+
+    bool isConnected() {
+        return channel != NULL;
+    }
+
+    void say(const string& text) {
+        const char *data = text.empty() ? "blank" : text.c_str();
+        spd_say(channel, SPD_TEXT, data);
+    }
+
+    Speech(const char *name)
+      : appName(name) { }
+
+    ~Speech() {
+        spd_close(channel);
+    }
+
+  private:
+    const char *appName;
+    SPDConnection *channel = NULL;
+};
+
+struct View {
+    View()
+      : top(0), pos(0), rows(24) { }
+
+    int top, pos, rows, cols;
+    Lines buffer;
+};
+
+vector<string> text(FILE *in) {
+    auto read = [in]() { return fgetc(in); };
+
+    vector<string> result;
+    string data;
+
+    for(auto ch = read(); ch != -1; ch = read()) {
+        if (ch == '\r' || ch == '\n') {
+            if (ch == '\r') {
+                ch = read();
+                if (ch != '\n')
+                    ungetc(ch, in);
+            }
+            result.push_back(data);
+            data.clear();
+        } else
+            data += ch;
+    }
+
+    if (!data.empty())
+        result.push_back(data);
 
     return result;
 }
 
-typedef struct View {
-    View() : top(0), pos(0), rows(24)
-    {}
-
-    int top, pos, rows;
-    Lines buffer;
-} View;
-
 void display(const View &view) {
+    clear();
+    move(0, 0);
     for(auto row = view.top; row < view.top + view.rows - 1; ++row)
         mvaddstr(row, 0, view.buffer[row].c_str());
     move(view.top + view.pos, 0);
@@ -89,24 +134,34 @@ void init() {
     keypad(stdscr, TRUE);
 }
 
+Lines read(string fname) {
+    FILE *fp;
+
+    if ((fp = fopen(fname.c_str(), "r")) == NULL) {
+        perror(fname.c_str());
+        exit(EXIT_FAILURE);
+    }
+
+    return text(fp);
+}
+
 int main(int argc, char *argv[]) {
     View view;
+    Speech speech("q");
 
-    init();
-    SPDConnection *s = spd_open("myApp", NULL, NULL, SPD_MODE_SINGLE);
-    if (s == NULL) {
+    view.buffer = read(argv[1]);
+    if (!speech.connect()) {
         fprintf(stderr, "failed to open connection to speeech-dispatcher");
         exit(EXIT_FAILURE);
     }
 
-    view.buffer = create();
-
-
-
+    init();
+    getmaxyx(stdscr, view.rows, view.cols);
     display(view);
 
     int ch;
-    spd_say(s, SPD_TEXT, view.buffer[view.top + view.pos].c_str());
+    speech.say(view.buffer[view.top + view.pos]);
+
     mvprintw(view.rows - 1, 40, "Ln %d", view.pos + 1);
     move(view.pos, 0);
     while ('q' != (ch = getch())) {
@@ -116,7 +171,13 @@ int main(int argc, char *argv[]) {
         if (ch == KEY_DOWN)
             moveDown(view);
 
-        spd_say(s, SPD_TEXT, view.buffer[view.top + view.pos].c_str());
+        if (ch == KEY_RESIZE) {
+            getmaxyx(stdscr, view.rows, view.cols);
+            if (view.pos > view.rows - 2)
+                view.pos = view.rows - 2;
+            display(view);
+        }
+        speech.say(view.buffer[view.top + view.pos]);
 
         mvprintw(view.rows - 1, 40, "Ln %d, key = 0%03o", view.top + view.pos + 1, ch);
         move(view.pos, 0);
@@ -126,7 +187,7 @@ int main(int argc, char *argv[]) {
     delwin(stdscr);
     endwin();
     refresh();
-    spd_close(s);
 
     return EXIT_SUCCESS;
 }
+

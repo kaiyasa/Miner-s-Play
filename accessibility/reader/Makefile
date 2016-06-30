@@ -1,22 +1,15 @@
 
-progs=hello chello keyb win q
+CXXFLAGS=-std=c++11 -g
 
-all: $(progs) win q
+progs=q
+
+.cpp.o:
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+all: $(progs)
 
 clean:
-	rm -f $(progs)
+	rm -f $(progs) *.o
 
-hello: hello.c
-	$(CC) -o $@ $< -lncurses
-
-chello: chello.c
-	$(CC) -o $@ $< -lncurses
-
-keyb: keyb.c
-	$(CC) -o $@ $< -lncurses
-
-win: win.c
-	$(CC) -o $@ $< -lncurses
-
-q: q.cpp
-	$(CXX) -std=c++11 -g -o $@ $< -lncurses -lspeechd
+q: q.o
+	$(CXX) $(CXXFLAGS) -o $@ $< -lncurses -lspeechd
