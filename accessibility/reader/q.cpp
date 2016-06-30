@@ -81,7 +81,7 @@ void display(const View &view) {
     clear();
     move(0, 0);
     for(auto row = view.top; row < view.top + view.rows - 1; ++row)
-        mvaddstr(row, 0, view.buffer[row].c_str());
+        mvwaddstr(stdscr, row, 0, view.buffer[row].c_str());
     move(view.top + view.pos, 0);
     refresh();
 }
@@ -100,7 +100,7 @@ void moveDown(View &view) {
         move(0, 0);
         insdelln(-1);
 
-        mvaddstr(view.pos, 0, view.buffer[view.top + view.pos].c_str());
+        mvwaddstr(stdscr, view.pos, 0, view.buffer[view.top + view.pos].c_str());
     }
 }
 
@@ -117,7 +117,7 @@ void moveUp(View &view) {
             move(0, 0);
             insertln();
 
-            mvaddstr(view.pos, 0, view.buffer[view.top + view.pos].c_str());
+            mvwaddstr(stdscr, view.pos, 0, view.buffer[view.top + view.pos].c_str());
 
             move(view.rows - 1, 0);
             deleteln();
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
     int ch;
     speech.say(view.buffer[view.top + view.pos]);
 
-    mvprintw(view.rows - 1, 40, "Ln %d", view.pos + 1);
+    mvwprintw(stdscr, view.rows - 1, 40, "Ln %d", view.pos + 1);
     move(view.pos, 0);
     while ('q' != (ch = getch())) {
         if (ch == KEY_UP)
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
         }
         speech.say(view.buffer[view.top + view.pos]);
 
-        mvprintw(view.rows - 1, 40, "Ln %d, key = 0%03o", view.top + view.pos + 1, ch);
+        mvwprintw(stdscr, view.rows - 1, 40, "Ln %d, key = 0%03o", view.top + view.pos + 1, ch);
         move(view.pos, 0);
         refresh();
     }
