@@ -95,7 +95,7 @@ void moveDown(View &view) {
     else {
         ++view.top;
         wmove(stdscr, view.rows - 1, 0);
-        deleteln();
+        wdeleteln(stdscr);
 
         wmove(stdscr, 0, 0);
         insdelln(-1);
@@ -120,7 +120,7 @@ void moveUp(View &view) {
             mvwaddstr(stdscr, view.pos, 0, view.buffer[view.top + view.pos].c_str());
 
             wmove(stdscr, view.rows - 1, 0);
-            deleteln();
+            wdeleteln(stdscr);
         }
 }
 
@@ -132,6 +132,14 @@ void init() {
 
     noecho();
     keypad(stdscr, TRUE);
+
+    if (has_colors()) {
+        start_color();
+        use_default_colors();
+        init_pair(1, COLOR_YELLOW, COLOR_WHITE);
+        init_pair(2, COLOR_BLACK, COLOR_WHITE);
+        color_set(1, NULL);
+    }
 }
 
 Lines read(string fname) {
@@ -164,6 +172,7 @@ int main(int argc, char *argv[]) {
 
     mvwprintw(stdscr, view.rows - 1, 40, "Ln %d", view.pos + 1);
     wmove(stdscr, view.pos, 0);
+    int color = 0;
     while ('q' != (ch = getch())) {
         if (ch == KEY_UP)
             moveUp(view);
@@ -177,10 +186,13 @@ int main(int argc, char *argv[]) {
                 view.pos = view.rows - 2;
             display(view);
         }
+        if (ch == 'c') {
+            init_pair(1, ++color % 8 , COLOR_WHITE);
+        }
         speech.say(view.buffer[view.top + view.pos]);
 
         wmove(stdscr, view.rows - 1, 0);
-        deleteln();
+        wdeleteln(stdscr);
         mvwprintw(stdscr, view.rows - 1, 40, "Ln %d, key = 0%03o (%s)", view.top + view.pos + 1, ch, keyname(ch));
         wmove(stdscr, view.pos, 0);
         refresh();
