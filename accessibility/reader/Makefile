@@ -1,5 +1,5 @@
 
-CXXFLAGS=-std=c++11 -g
+CXXFLAGS=-std=c++11 -g -I/usr/include/speech-dispatcher
 
 progs=q
 

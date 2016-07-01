@@ -179,7 +179,9 @@ int main(int argc, char *argv[]) {
         }
         speech.say(view.buffer[view.top + view.pos]);
 
-        mvwprintw(stdscr, view.rows - 1, 40, "Ln %d, key = 0%03o", view.top + view.pos + 1, ch);
+        wmove(stdscr, view.rows - 1, 0);
+        deleteln();
+        mvwprintw(stdscr, view.rows - 1, 40, "Ln %d, key = 0%03o (%s)", view.top + view.pos + 1, ch, keyname(ch));
         wmove(stdscr, view.pos, 0);
         refresh();
     }
