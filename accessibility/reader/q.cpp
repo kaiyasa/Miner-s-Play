@@ -136,7 +136,7 @@ void init() {
     if (has_colors()) {
         start_color();
         use_default_colors();
-        init_pair(1, COLOR_YELLOW, COLOR_WHITE);
+        init_pair(1, COLOR_BLACK, COLOR_WHITE);
         init_pair(2, COLOR_BLACK, COLOR_WHITE);
         color_set(1, NULL);
     }
@@ -157,7 +157,12 @@ int main(int argc, char *argv[]) {
     View view;
     Speech speech("q");
 
-    view.buffer = read(argv[1]);
+    if (argc < 2) {
+        view.buffer = text(fdopen(STDIN_FILENO, "r"));
+        freopen("/dev/tty", "r", stdin);
+    } else
+        view.buffer = read(argv[1]);
+
     if (!speech.connect()) {
         fprintf(stderr, "failed to open connection to speeech-dispatcher");
         exit(EXIT_FAILURE);
