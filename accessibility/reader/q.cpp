@@ -7,6 +7,8 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <functional>
 
 #include <speech-dispatcher/libspeechd.h>
 
@@ -23,11 +25,14 @@ class Speech {
         return isConnected();
     }
 
-    bool isConnected() {
+    bool isConnected() const {
         return channel != NULL;
     }
 
-    void say(const string& text) {
+    void say(const string& text) const {
+        if (!isConnected())
+            return;
+
         const char *data = text.empty() ? "blank" : text.c_str();
         spd_say(channel, SPD_TEXT, data);
     }
@@ -51,6 +56,10 @@ struct View {
     int top, pos, rows, cols;
     Lines buffer;
 };
+
+int min(int a, int b) {
+    return a < b ? a : b;
+}
 
 vector<string> text(FILE *in) {
     auto read = [in]() { return fgetc(in); };
@@ -80,7 +89,8 @@ vector<string> text(FILE *in) {
 void display(const View &view) {
     clear();
     wmove(stdscr, 0, 0);
-    for(auto row = view.top; row < view.top + view.rows - 1; ++row)
+    int last = min(view.buffer.size(), view.top + view.rows - 1);
+    for(auto row = view.top; row < last; ++row)
         mvwaddstr(stdscr, row, 0, view.buffer[row].c_str());
     wmove(stdscr, view.top + view.pos, 0);
     refresh();
@@ -124,7 +134,7 @@ void moveUp(View &view) {
         }
 }
 
-void init() {
+void init(View view) {
     if (NULL == initscr()) {
         fprintf(stderr, "failed to initialize curses");
         exit(EXIT_FAILURE);
@@ -132,6 +142,7 @@ void init() {
 
     noecho();
     keypad(stdscr, TRUE);
+    getmaxyx(stdscr, view.rows, view.cols);
 
     if (has_colors()) {
         start_color();
@@ -142,7 +153,7 @@ void init() {
     }
 }
 
-Lines read(string fname) {
+FILE* read(string fname) {
     FILE *fp;
 
     if ((fp = fopen(fname.c_str(), "r")) == NULL) {
@@ -150,7 +161,54 @@ Lines read(string fname) {
         exit(EXIT_FAILURE);
     }
 
-    return text(fp);
+    return fp;
+}
+
+struct KeyAction {
+    typedef function<int(View&, Speech&)> lambda;
+
+    int keyCode;
+    lambda action;
+};
+
+vector<KeyAction> setup() {
+    vector<KeyAction> result;
+
+    result.push_back( {KEY_UP, [](View &view, Speech &speech) {
+        moveUp(view);
+        return 1;
+    }});
+
+    result.push_back( {KEY_DOWN, [](View &view, Speech &speech) {
+        moveDown(view);
+        return 1;
+    }});
+
+    result.push_back( {KEY_RESIZE, [](View &view, Speech &speech) {
+        getmaxyx(stdscr, view.rows, view.cols);
+        if (view.pos > view.rows - 2)
+            view.pos = view.rows - 2;
+        display(view);
+        return 1;
+    }});
+
+    result.push_back( {KEY_RESIZE, [](View &view, Speech &speech) {
+        if (view.top + view.rows - 1 < view.buffer.size() - 1) {
+            view.top += view.rows - 1;
+            if (view.top + view.pos >= view.buffer.size())
+                view.pos = view.buffer.size() - 1 - view.top;
+            display(view);
+        } else {
+            speech.say("no more text");
+            return 0;
+        }
+        return 1;
+    }});
+
+    result.push_back( {'q', [](View &view, Speech &speech) {
+        return 2;
+    }});
+    return result;
 }
 
 int main(int argc, char *argv[]) {
@@ -161,15 +219,14 @@ int main(int argc, char *argv[]) {
         view.buffer = text(fdopen(STDIN_FILENO, "r"));
         freopen("/dev/tty", "r", stdin);
     } else
-        view.buffer = read(argv[1]);
+        view.buffer = text(read(argv[1]));
 
     if (!speech.connect()) {
         fprintf(stderr, "failed to open connection to speeech-dispatcher");
         exit(EXIT_FAILURE);
     }
 
-    init();
-    getmaxyx(stdscr, view.rows, view.cols);
+    init(view);
     display(view);
 
     int ch;
@@ -177,24 +234,22 @@ int main(int argc, char *argv[]) {
 
     mvwprintw(stdscr, view.rows - 1, 40, "Ln %d", view.pos + 1);
     wmove(stdscr, view.pos, 0);
-    int color = 0;
-    while ('q' != (ch = getch())) {
-        if (ch == KEY_UP)
-            moveUp(view);
 
-        if (ch == KEY_DOWN)
-            moveDown(view);
+    auto actions = setup();
+    bool isRunning = true;
+    while (isRunning) {
+        ch = getch();
+        auto item = find_if(actions.begin(), actions.end(), [ch](KeyAction action) {
+            return action.keyCode == ch;
+        });
 
-        if (ch == KEY_RESIZE) {
-            getmaxyx(stdscr, view.rows, view.cols);
-            if (view.pos > view.rows - 2)
-                view.pos = view.rows - 2;
-            display(view);
+        if (item != actions.end()) {
+            int code = item->action(view, speech);
+            if (code == 2)
+                isRunning = false;
+            if (code == 1)
+                speech.say(view.buffer[view.top + view.pos]);
         }
-        if (ch == 'c') {
-            init_pair(1, ++color % 8 , COLOR_WHITE);
-        }
-        speech.say(view.buffer[view.top + view.pos]);
 
         wmove(stdscr, view.rows - 1, 0);
         wdeleteln(stdscr);
