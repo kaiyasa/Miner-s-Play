@@ -193,7 +193,15 @@ void moveUp(View &view) {
     }
 }
 
-void init(View& view, View& status) {
+struct Context {
+    View view;
+    View status;
+    Speech speech;
+
+    Context() : speech("q") {}
+};
+
+void init(Context& context) {
     if (NULL == initscr()) {
         fprintf(stderr, "failed to initialize curses");
         exit(EXIT_FAILURE);
@@ -204,13 +212,13 @@ void init(View& view, View& status) {
 
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
-    view.y    = 0;
-    view.rows = rows - 1;
-    view.cols = cols;
+    context.view.y    = 0;
+    context.view.rows = rows - 1;
+    context.view.cols = cols;
 
-    status.y    = view.rows;
-    status.rows = 1;
-    status.cols = cols;
+    context.status.y    = context.view.rows;
+    context.status.rows = 1;
+    context.status.cols = cols;
 
     if (has_colors()) {
         start_color();
@@ -233,7 +241,7 @@ FILE* read(string fname) {
 }
 
 struct KeyAction {
-    typedef function<int(View&, Speech&)> lambda;
+    typedef function<int(Context&)> lambda;
 
     int keyCode;
     lambda action;
@@ -242,73 +250,72 @@ struct KeyAction {
 vector<KeyAction> setup() {
     vector<KeyAction> result;
 
-    result.push_back( {KEY_UP, [](View &view, Speech &speech) {
-        moveUp(view);
+    result.push_back( {KEY_UP, [](Context &context) {
+        moveUp(context.view);
         return 1;
     }});
 
-    result.push_back( {KEY_DOWN, [](View &view, Speech &speech) {
-        moveDown(view);
+    result.push_back( {KEY_DOWN, [](Context &context) {
+        moveDown(context.view);
         return 1;
     }});
 
-    result.push_back( {KEY_RESIZE, [](View &view, Speech &speech) {
+    result.push_back( {KEY_RESIZE, [](Context &context) {
         int rows, cols;
         getmaxyx(stdscr, rows, cols);
-        view.rows = rows - 1;
-        //status.y = view.rows;
-        view.cols = /*status.cols =*/ cols;
+        context.view.rows = rows - 1;
+        context.status.y = context.view.rows;
+        context.view.cols = context.status.cols = cols;
 
-        if (view.pos >= view.rows)
-            view.pos = view.rows - 1;
-        display(view);
+        if (context.view.pos >= context.view.rows)
+            context.view.pos = context.view.rows - 1;
+        display(context.view);
         return 1;
     }});
 
-    result.push_back( {' ', [](View &view, Speech &speech) {
-        if (view.location() < view.buffer.size() - view.rows) {
-            view.top += view.rows - 1;
-            if (view.location() >= view.buffer.size())
-                view.pos = view.buffer.size() - 1 - view.top;
-            display(view);
+    result.push_back( {' ', [](Context &context) {
+        if (context.view.location() < context.view.buffer.size() - context.view.rows) {
+            context.view.top += context.view.rows - 1;
+            if (context.view.location() >= context.view.buffer.size())
+                context.view.pos = context.view.buffer.size() - 1 - context.view.top;
+            display(context.view);
         } else {
-            speech.say("no more text");
+            context.speech.say("no more text");
             return 0;
         }
         return 1;
     }});
 
-    result.push_back( {'q', [](View &view, Speech &speech) {
+    result.push_back( {'q', [](Context &context) {
         return 2;
     }});
     return result;
 }
 
 int main(int argc, char *argv[]) {
-    View view, status;
-    Speech speech("q");
+    Context context;
 
     if (argc < 2) {
-        view.buffer = text(stdin);
+        context.view.buffer = text(stdin);
         freopen("/dev/tty", "r", stdin);
     } else
-        view.buffer = text(read(argv[1]));
+        context.view.buffer = text(read(argv[1]));
 
 
-    if (!speech.connect()) {
+    if (!context.speech.connect()) {
         fprintf(stderr, "failed to open connection to speeech-dispatcher");
         exit(EXIT_FAILURE);
     }
 
-    init(view, status);
-    display(view);
+    init(context);
+    display(context.view);
 
-    speech.say(view.currentLine());
+    context.speech.say(context.view.currentLine());
 
-    status.moveTo(0, 0)
+    context.status.moveTo(0, 0)
           .delln().insln()
-          .printf(0, 40, "Ln %d", view.location() + 1);
-    view.moveTo();
+          .printf(0, 40, "Ln %d", context.view.location() + 1);
+    context.view.moveTo();
 
     int ch;
     auto actions = setup();
@@ -320,19 +327,19 @@ int main(int argc, char *argv[]) {
         });
 
         if (item != actions.end()) {
-            int code = item->action(view, speech);
+            int code = item->action(context);
             if (code == 2)
                 isRunning = false;
             if (code == 1)
-                speech.say(view.currentLine());
+                context.speech.say(context.view.currentLine());
         }
 
-        status.moveTo(0, 0)
+        context.status.moveTo(0, 0)
               .delln().insln()
               .printf(0, 40, "Ln %d (%d:%d), key = 0%03o (%s)",
-                 view.location() + 1, view.top, view.pos, ch, keyname(ch));
+                 context.view.location() + 1, context.view.top, context.view.pos, ch, keyname(ch));
 
-        view.moveTo();
+        context.view.moveTo();
         refresh();
     }
 
