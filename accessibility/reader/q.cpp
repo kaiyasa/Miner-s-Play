@@ -1,7 +1,9 @@
 
-#include <stdlib.h>
-#include <unistd.h>
+#include <cstdlib>
+#include <cstdarg>
 #include <cstdio>
+
+#include <unistd.h>
 
 #include <ncurses.h>
 
@@ -51,10 +53,72 @@ class Speech {
 
 struct View {
     View()
-      : top(0), pos(0), rows(24) { }
+      : top(0), pos(0), y(0), rows(24), cols(80) { }
 
-    int top, pos, rows, cols;
+    int top, pos, y, rows, cols;
     Lines buffer;
+
+    string& currentLine() {
+        return buffer[location()];
+    }
+
+    View& print(const string& text) {
+        waddstr(stdscr, text.c_str());
+        return *this;
+    }
+
+    View& print(int r, int c, const string& text) {
+        mvwaddstr(stdscr, y + r, c, text.c_str());
+        return *this;
+    }
+
+    View& printf(const char *fmt, ...) {
+        va_list va;
+
+        va_start(va, fmt);
+        print(sprintf(va, fmt));
+        va_end(va);
+        return *this;
+    }
+
+    View& printf(int r, int c, const char *fmt, ...) {
+        va_list va;
+
+        va_start(va, fmt);
+        print(r, c, sprintf(va, fmt));
+        va_end(va);
+        return *this;
+    }
+
+    int location() {
+        return top + pos;
+    }
+
+    View& moveTo() {
+        return moveTo(pos, 0);
+    }
+
+    View& moveTo(int r, int c) {
+        wmove(stdscr, y + r, c);
+        return *this;
+    }
+
+    View& insln() {
+        winsertln(stdscr);
+        return *this;
+    }
+
+    View& delln() {
+        wdeleteln(stdscr);
+        return *this;
+    }
+
+    string sprintf(va_list va, const char *fmt) {
+        char buffer[2048];
+
+        vsnprintf(buffer, sizeof(buffer), fmt, va);
+        return string(buffer);
+    }
 };
 
 int min(int a, int b) {
@@ -86,55 +150,50 @@ vector<string> text(FILE *in) {
     return result;
 }
 
-void display(const View &view) {
+void display(View &view) {
     clear();
-    wmove(stdscr, 0, 0);
-    int last = min(view.buffer.size(), view.top + view.rows - 1);
+    view.moveTo(0, 0);
+
+    int last = min(view.buffer.size(), view.top + view.rows);
     for(auto row = view.top; row < last; ++row)
-        mvwaddstr(stdscr, row, 0, view.buffer[row].c_str());
-    wmove(stdscr, view.top + view.pos, 0);
+        view.print(row - view.top, 0, view.buffer[row]);
+    view.moveTo();
     refresh();
 }
 
 void moveDown(View &view) {
-    if (view.top + view.pos == view.buffer.size() - 1)
+    if (view.location() == view.buffer.size() - 1)
         return;
 
-    if (view.pos < view.rows - 2)
-        ++view.pos;
-    else {
+    if (view.pos == view.rows - 1) {
         ++view.top;
-        wmove(stdscr, view.rows - 1, 0);
-        wdeleteln(stdscr);
-
-        wmove(stdscr, 0, 0);
-        insdelln(-1);
-
-        mvwaddstr(stdscr, view.pos, 0, view.buffer[view.top + view.pos].c_str());
-    }
+        view.moveTo(0, 0)
+            .delln()
+            .moveTo()
+            .insln()
+            .print(view.currentLine());
+    } else
+        ++view.pos;
 }
 
 void moveUp(View &view) {
-    if (view.top + view.pos == 0)
+    if (view.location() == 0)
         return;
 
     if (view.pos > 0)
         --view.pos;
-    else
-        if (view.top > 0) {
-            --view.top;
+    else {
+        --view.top;
 
-            wmove(stdscr, 0, 0);
-            insertln();
-
-            mvwaddstr(stdscr, view.pos, 0, view.buffer[view.top + view.pos].c_str());
-
-            wmove(stdscr, view.rows - 1, 0);
-            wdeleteln(stdscr);
-        }
+        view.moveTo(view.rows - 1, 0)
+            .delln()
+            .moveTo()
+            .insln()
+            .print(view.currentLine());
+    }
 }
 
-void init(View view) {
+void init(View& view, View& status) {
     if (NULL == initscr()) {
         fprintf(stderr, "failed to initialize curses");
         exit(EXIT_FAILURE);
@@ -142,7 +201,16 @@ void init(View view) {
 
     noecho();
     keypad(stdscr, TRUE);
-    getmaxyx(stdscr, view.rows, view.cols);
+
+    int rows, cols;
+    getmaxyx(stdscr, rows, cols);
+    view.y    = 0;
+    view.rows = rows - 1;
+    view.cols = cols;
+
+    status.y    = view.rows;
+    status.rows = 1;
+    status.cols = cols;
 
     if (has_colors()) {
         start_color();
@@ -185,17 +253,22 @@ vector<KeyAction> setup() {
     }});
 
     result.push_back( {KEY_RESIZE, [](View &view, Speech &speech) {
-        getmaxyx(stdscr, view.rows, view.cols);
-        if (view.pos > view.rows - 2)
-            view.pos = view.rows - 2;
+        int rows, cols;
+        getmaxyx(stdscr, rows, cols);
+        view.rows = rows - 1;
+        //status.y = view.rows;
+        view.cols = /*status.cols =*/ cols;
+
+        if (view.pos >= view.rows)
+            view.pos = view.rows - 1;
         display(view);
         return 1;
     }});
 
-    result.push_back( {KEY_RESIZE, [](View &view, Speech &speech) {
-        if (view.top + view.rows - 1 < view.buffer.size() - 1) {
+    result.push_back( {' ', [](View &view, Speech &speech) {
+        if (view.location() < view.buffer.size() - view.rows) {
             view.top += view.rows - 1;
-            if (view.top + view.pos >= view.buffer.size())
+            if (view.location() >= view.buffer.size())
                 view.pos = view.buffer.size() - 1 - view.top;
             display(view);
         } else {
@@ -212,33 +285,36 @@ vector<KeyAction> setup() {
 }
 
 int main(int argc, char *argv[]) {
-    View view;
+    View view, status;
     Speech speech("q");
 
     if (argc < 2) {
-        view.buffer = text(fdopen(STDIN_FILENO, "r"));
+        view.buffer = text(stdin);
         freopen("/dev/tty", "r", stdin);
     } else
         view.buffer = text(read(argv[1]));
+
 
     if (!speech.connect()) {
         fprintf(stderr, "failed to open connection to speeech-dispatcher");
         exit(EXIT_FAILURE);
     }
 
-    init(view);
+    init(view, status);
     display(view);
 
+    speech.say(view.currentLine());
+
+    status.moveTo(0, 0)
+          .delln().insln()
+          .printf(0, 40, "Ln %d", view.location() + 1);
+    view.moveTo();
+
     int ch;
-    speech.say(view.buffer[view.top + view.pos]);
-
-    mvwprintw(stdscr, view.rows - 1, 40, "Ln %d", view.pos + 1);
-    wmove(stdscr, view.pos, 0);
-
     auto actions = setup();
     bool isRunning = true;
     while (isRunning) {
-        ch = getch();
+        ch = wgetch(stdscr);
         auto item = find_if(actions.begin(), actions.end(), [ch](KeyAction action) {
             return action.keyCode == ch;
         });
@@ -248,13 +324,15 @@ int main(int argc, char *argv[]) {
             if (code == 2)
                 isRunning = false;
             if (code == 1)
-                speech.say(view.buffer[view.top + view.pos]);
+                speech.say(view.currentLine());
         }
 
-        wmove(stdscr, view.rows - 1, 0);
-        wdeleteln(stdscr);
-        mvwprintw(stdscr, view.rows - 1, 40, "Ln %d, key = 0%03o (%s)", view.top + view.pos + 1, ch, keyname(ch));
-        wmove(stdscr, view.pos, 0);
+        status.moveTo(0, 0)
+              .delln().insln()
+              .printf(0, 40, "Ln %d (%d:%d), key = 0%03o (%s)",
+                 view.location() + 1, view.top, view.pos, ch, keyname(ch));
+
+        view.moveTo();
         refresh();
     }
 
