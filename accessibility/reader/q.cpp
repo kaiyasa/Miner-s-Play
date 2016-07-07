@@ -55,6 +55,17 @@ class Speech {
     SPDConnection *channel = NULL;
 };
 
+struct Description {
+    struct Marker {
+        int size;
+        string utter;
+    };
+
+    int location;
+    string all;
+    vector<Marker> text;
+};
+
 struct View {
     View()
       : top(0), pos(0), xpos(0), y(0), rows(24), cols(80) { }
@@ -212,6 +223,7 @@ struct Context {
     View view;
     View status;
     Speech speech;
+    Description speak;
 
     Context() : speech("q") {}
 };
@@ -253,6 +265,24 @@ FILE* read(string fname) {
     }
 
     return fp;
+}
+
+string char2str(char ch);
+
+Description describe(int location, const string& text) {
+    Description result = { location, text };
+
+    int pos = 0;
+    for(auto i = text.begin(); i != text.end(); ++i) {
+        char ch = *i;
+        int size = 1;
+
+        if (ch == '\t')
+            size = TABSIZE - (pos % TABSIZE);
+        Description::Marker mark = { size, char2str(ch) };
+        result.text.push_back(mark);
+    }
+    return result;
 }
 
 struct KeyAction {
@@ -313,8 +343,11 @@ vector<KeyAction> setup() {
 
         if (context.view.xpos >= context.view.currentLine().size() - 1)
             text = string("end");
-        else
-            text = char2str(context.view.currentLine()[++context.view.xpos]);
+        else {
+            Description::Marker &mark = context.speak.text[context.view.xpos];
+            context.view.xpos += mark.size;
+            text = mark.utter;
+        }
 
         context.speech.say(text);
         return 0;
@@ -378,7 +411,8 @@ int main(int argc, char *argv[]) {
     init(context);
     display(context.view);
 
-    context.speech.say(context.view.currentLine());
+    context.speak = describe(context.view.location(), context.view.currentLine());
+    context.speech.say(context.speak.all);
 
     context.status.moveTo(0, 0)
           .delln().insln()
@@ -398,8 +432,11 @@ int main(int argc, char *argv[]) {
             int code = item->action(context);
             if (code == 2)
                 isRunning = false;
-            if (code == 1)
-                context.speech.say(context.view.currentLine());
+            if (code == 1) {
+                if (context.speak.location != context.view.location())
+                    context.speak = describe(context.view.location(), context.view.currentLine());
+                context.speech.say(context.speak.all);
+            }
         }
 
         context.status.moveTo(0, 0)
