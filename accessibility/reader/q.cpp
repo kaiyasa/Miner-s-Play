@@ -53,13 +53,17 @@ class Speech {
 
 struct View {
     View()
-      : top(0), pos(0), y(0), rows(24), cols(80) { }
+      : top(0), pos(0), xpos(0), y(0), rows(24), cols(80) { }
 
-    int top, pos, y, rows, cols;
+    int top, pos, xpos, y, rows, cols;
     Lines buffer;
 
     string& currentLine() {
         return buffer[location()];
+    }
+
+    char currentChar() {
+        return currentLine()[xpos];
     }
 
     View& print(const string& text) {
@@ -95,7 +99,8 @@ struct View {
     }
 
     View& moveTo() {
-        return moveTo(pos, 0);
+        int last = currentLine().empty() ? 0 : currentLine().size() - 1;
+        return moveTo(pos, min(xpos, last));
     }
 
     View& moveTo(int r, int c) {
@@ -123,6 +128,10 @@ struct View {
 
 int min(int a, int b) {
     return a < b ? a : b;
+}
+
+int max(int a, int b) {
+    return a > b ? a : b;
 }
 
 vector<string> text(FILE *in) {
@@ -156,7 +165,7 @@ void display(View &view) {
 
     int last = min(view.buffer.size(), view.top + view.rows);
     for(auto row = view.top; row < last; ++row)
-        view.print(row - view.top, 0, view.buffer[row]);
+        view.print(row - view.top, view.xpos, view.buffer[row]);
     view.moveTo();
     refresh();
 }
@@ -169,9 +178,10 @@ void moveDown(View &view) {
         ++view.top;
         view.moveTo(0, 0)
             .delln()
-            .moveTo()
+            .moveTo(view.pos, 0)
             .insln()
-            .print(view.currentLine());
+            .print(view.currentLine())
+            .moveTo();
     } else
         ++view.pos;
 }
@@ -187,9 +197,10 @@ void moveUp(View &view) {
 
         view.moveTo(view.rows - 1, 0)
             .delln()
-            .moveTo()
+            .moveTo(view.pos, 0)
             .insln()
-            .print(view.currentLine());
+            .print(view.currentLine())
+            .moveTo();
     }
 }
 
@@ -247,6 +258,26 @@ struct KeyAction {
     lambda action;
 };
 
+string char2str(char ch) {
+    char text[2] = { 0, 0 };
+
+    text[0] = ch;
+    switch (ch) {
+        case '(':   return string("open paren");
+        case '{':   return string("open curly");
+        case ')':   return string("close paren");
+        case '}':   return string("close curly");
+        case '<':   return string("greater than");
+        case '>':   return string("less than");
+        case '.':   return string("dot");
+        case ';':   return string("semi colon");
+        case ' ':   return string("space");
+        case '\t':  return string("tab");
+        default:    return string(text);
+    }
+    return string("undefined");
+}
+
 vector<KeyAction> setup() {
     vector<KeyAction> result;
 
@@ -273,6 +304,33 @@ vector<KeyAction> setup() {
         return 1;
     }});
 
+    result.push_back( {KEY_RIGHT, [](Context &context) {
+        string text;
+
+        if (context.view.xpos >= context.view.currentLine().size() - 1)
+            text = string("end");
+        else
+            text = char2str(context.view.currentLine()[++context.view.xpos]);
+
+        context.speech.say(text);
+        return 0;
+    }});
+
+    result.push_back( {KEY_LEFT, [](Context &context) {
+        string text;
+
+        if (context.view.xpos == 0)
+            text = string("start");
+        else {
+            int prev = max(0, min(context.view.xpos - 1, context.view.currentLine().size() - 2));
+            context.view.xpos = prev;
+            text = char2str(context.view.currentLine()[prev]);
+        }
+
+        context.speech.say(text);
+        return 0;
+    }});
+
     result.push_back( {' ', [](Context &context) {
         if (context.view.location() < context.view.buffer.size() - context.view.rows) {
             context.view.top += context.view.rows - 1;
@@ -289,6 +347,7 @@ vector<KeyAction> setup() {
     result.push_back( {'q', [](Context &context) {
         return 2;
     }});
+
     return result;
 }
 
