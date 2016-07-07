@@ -18,6 +18,10 @@ typedef std::vector<std::string> Lines;
 
 using namespace std;
 
+enum KeyCode {
+    CNTL_KEY_RIGHT = 01057
+};
+
 class Speech {
   public:
     bool connect() {
@@ -328,6 +332,11 @@ vector<KeyAction> setup() {
         }
 
         context.speech.say(text);
+        return 0;
+    }});
+
+    result.push_back( {CNTL_KEY_RIGHT, [](Context &context) {
+        context.speech.say("stub");
         return 0;
     }});
 
