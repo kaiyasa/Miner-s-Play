@@ -13,99 +13,13 @@
 #include <functional>
 
 #include "speech.h"
-
-typedef std::vector<std::string> Lines;
+#include "description.h"
+#include "view.h"
 
 using namespace std;
 
 enum KeyCode {
     CNTL_KEY_RIGHT = 01057
-};
-
-struct Description {
-    struct Marker {
-        int size;
-        string utter;
-    };
-
-    int location;
-    string all;
-    vector<Marker> text;
-};
-
-struct View {
-    View()
-      : top(0), pos(0), xpos(0), y(0), rows(24), cols(80) { }
-
-    int top, pos, xpos, y, rows, cols;
-    Lines buffer;
-
-    string& currentLine() {
-        return buffer[location()];
-    }
-
-    char currentChar() {
-        return currentLine()[xpos];
-    }
-
-    View& print(const string& text) {
-        waddstr(stdscr, text.c_str());
-        return *this;
-    }
-
-    View& print(int r, int c, const string& text) {
-        mvwaddstr(stdscr, y + r, c, text.c_str());
-        return *this;
-    }
-
-    View& printf(const char *fmt, ...) {
-        va_list va;
-
-        va_start(va, fmt);
-        print(sprintf(va, fmt));
-        va_end(va);
-        return *this;
-    }
-
-    View& printf(int r, int c, const char *fmt, ...) {
-        va_list va;
-
-        va_start(va, fmt);
-        print(r, c, sprintf(va, fmt));
-        va_end(va);
-        return *this;
-    }
-
-    int location() {
-        return top + pos;
-    }
-
-    View& moveTo() {
-        int last = currentLine().empty() ? 0 : currentLine().size() - 1;
-        return moveTo(pos, min(xpos, last));
-    }
-
-    View& moveTo(int r, int c) {
-        wmove(stdscr, y + r, c);
-        return *this;
-    }
-
-    View& insln() {
-        winsertln(stdscr);
-        return *this;
-    }
-
-    View& delln() {
-        wdeleteln(stdscr);
-        return *this;
-    }
-
-    string sprintf(va_list va, const char *fmt) {
-        char buffer[2048];
-
-        vsnprintf(buffer, sizeof(buffer), fmt, va);
-        return string(buffer);
-    }
 };
 
 int min(int a, int b) {

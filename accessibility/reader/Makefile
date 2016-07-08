@@ -4,7 +4,8 @@ CXXFLAGS=-std=c++11 -g -I/usr/include/speech-dispatcher
 progs=q
 OBJS= \
 	q.o \
-	speech.o
+	speech.o \
+	view.o
 
 .cpp.o:
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
@@ -17,4 +18,4 @@ clean:
 q: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -lncurses -lspeechd
 
-q.o: q.cpp speech.h
+q.o: q.cpp speech.h description.h view.h
