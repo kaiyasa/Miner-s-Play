@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <functional>
 
-#include <speech-dispatcher/libspeechd.h>
+#include "speech.h"
 
 typedef std::vector<std::string> Lines;
 
@@ -20,39 +20,6 @@ using namespace std;
 
 enum KeyCode {
     CNTL_KEY_RIGHT = 01057
-};
-
-class Speech {
-  public:
-    bool connect() {
-        if (!isConnected())
-            channel = spd_open(appName, NULL, NULL, SPD_MODE_SINGLE);
-
-        return isConnected();
-    }
-
-    bool isConnected() const {
-        return channel != NULL;
-    }
-
-    void say(const string& text) const {
-        if (!isConnected())
-            return;
-
-        const char *data = text.empty() ? "blank" : text.c_str();
-        spd_say(channel, SPD_TEXT, data);
-    }
-
-    Speech(const char *name)
-      : appName(name) { }
-
-    ~Speech() {
-        spd_close(channel);
-    }
-
-  private:
-    const char *appName;
-    SPDConnection *channel = NULL;
 };
 
 struct Description {
@@ -409,6 +376,7 @@ int main(int argc, char *argv[]) {
     }
 
     init(context);
+    wtimeout(stdscr, 100);
     display(context.view);
 
     context.speak = describe(context.view.location(), context.view.currentLine());

@@ -2,6 +2,9 @@
 CXXFLAGS=-std=c++11 -g -I/usr/include/speech-dispatcher
 
 progs=q
+OBJS= \
+	q.o \
+	speech.o
 
 .cpp.o:
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
@@ -9,7 +12,9 @@ progs=q
 all: $(progs)
 
 clean:
-	rm -f $(progs) *.o
+	rm -f $(progs) $(OBJS)
 
-q: q.o
-	$(CXX) $(CXXFLAGS) -o $@ $< -lncurses -lspeechd
+q: $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -lncurses -lspeechd
+
+q.o: q.cpp speech.h
