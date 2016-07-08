@@ -8,6 +8,7 @@ OBJS= \
 	ui.o \
 	view.o \
 	io.o \
+	application.o \
 	misc.o
 
 .cpp.o:
@@ -21,4 +22,4 @@ clean:
 q: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -lncurses -lspeechd
 
-q.o: q.cpp speech.h description.h view.h ui.h misc.h io.h
+q.o: q.cpp application.h description.h io.h misc.h speech.h ui.h view.h
