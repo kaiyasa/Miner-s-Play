@@ -1,104 +1,17 @@
 
-#include <cstdlib>
-#include <cstdarg>
 #include <cstdio>
-
-#include <unistd.h>
+#include <algorithm>
 
 #include <ncurses.h>
 
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <functional>
-
 #include "speech.h"
 #include "description.h"
-#include "view.h"
+#include "ui.h"
+#include "io.h"
+#include "misc.h"
+
 
 using namespace std;
-
-enum KeyCode {
-    CNTL_KEY_RIGHT = 01057
-};
-
-int min(int a, int b) {
-    return a < b ? a : b;
-}
-
-int max(int a, int b) {
-    return a > b ? a : b;
-}
-
-vector<string> text(FILE *in) {
-    auto read = [in]() { return fgetc(in); };
-
-    vector<string> result;
-    string data;
-
-    for(auto ch = read(); ch != -1; ch = read()) {
-        if (ch == '\r' || ch == '\n') {
-            if (ch == '\r') {
-                ch = read();
-                if (ch != '\n')
-                    ungetc(ch, in);
-            }
-            result.push_back(data);
-            data.clear();
-        } else
-            data += ch;
-    }
-
-    if (!data.empty())
-        result.push_back(data);
-
-    return result;
-}
-
-void display(View &view) {
-    clear();
-    view.moveTo(0, 0);
-
-    int last = min(view.buffer.size(), view.top + view.rows);
-    for(auto row = view.top; row < last; ++row)
-        view.print(row - view.top, view.xpos, view.buffer[row]);
-    view.moveTo();
-    refresh();
-}
-
-void moveDown(View &view) {
-    if (view.location() == view.buffer.size() - 1)
-        return;
-
-    if (view.pos == view.rows - 1) {
-        ++view.top;
-        view.moveTo(0, 0)
-            .delln()
-            .moveTo(view.pos, 0)
-            .insln()
-            .print(view.currentLine())
-            .moveTo();
-    } else
-        ++view.pos;
-}
-
-void moveUp(View &view) {
-    if (view.location() == 0)
-        return;
-
-    if (view.pos > 0)
-        --view.pos;
-    else {
-        --view.top;
-
-        view.moveTo(view.rows - 1, 0)
-            .delln()
-            .moveTo(view.pos, 0)
-            .insln()
-            .print(view.currentLine())
-            .moveTo();
-    }
-}
 
 struct Context {
     View view;
@@ -137,42 +50,6 @@ void init(Context& context) {
     }
 }
 
-FILE* read(string fname) {
-    FILE *fp;
-
-    if ((fp = fopen(fname.c_str(), "r")) == NULL) {
-        perror(fname.c_str());
-        exit(EXIT_FAILURE);
-    }
-
-    return fp;
-}
-
-string char2str(char ch);
-
-Description describe(int location, const string& text) {
-    Description result = { location, text };
-
-    int pos = 0;
-    for(auto i = text.begin(); i != text.end(); ++i) {
-        char ch = *i;
-        int size = 1;
-
-        if (ch == '\t')
-            size = TABSIZE - (pos % TABSIZE);
-        Description::Marker mark = { size, char2str(ch) };
-        result.text.push_back(mark);
-    }
-    return result;
-}
-
-struct KeyAction {
-    typedef function<int(Context&)> lambda;
-
-    int keyCode;
-    lambda action;
-};
-
 string char2str(char ch) {
     char text[2] = { 0, 0 };
 
@@ -191,6 +68,22 @@ string char2str(char ch) {
         default:    return string(text);
     }
     return string("undefined");
+}
+
+Description describe(int location, const string& text) {
+    Description result = { location, text };
+
+    int pos = 0;
+    for(auto i = text.begin(); i != text.end(); ++i) {
+        char ch = *i;
+        int size = 1;
+
+        if (ch == '\t')
+            size = TABSIZE - (pos % TABSIZE);
+        Description::Marker mark = { size, char2str(ch) };
+        result.text.push_back(mark);
+    }
+    return result;
 }
 
 vector<KeyAction> setup() {

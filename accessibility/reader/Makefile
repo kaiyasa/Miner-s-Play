@@ -5,7 +5,10 @@ progs=q
 OBJS= \
 	q.o \
 	speech.o \
-	view.o
+	ui.o \
+	view.o \
+	io.o \
+	misc.o
 
 .cpp.o:
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
@@ -18,4 +21,4 @@ clean:
 q: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -lncurses -lspeechd
 
-q.o: q.cpp speech.h description.h view.h
+q.o: q.cpp speech.h description.h view.h ui.h misc.h io.h

@@ -15,8 +15,9 @@ class View {
     View();
 
     std::string& currentLine();
-    char currentChar();
-    int location();
+    const std::string& currentLine() const;
+    char currentChar() const;
+    int location() const;
 
     View& print(const std::string& text);
     View& print(int r, int c, const std::string& text);
