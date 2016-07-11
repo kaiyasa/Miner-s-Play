@@ -5,12 +5,27 @@
 #include <string>
 #include <vector>
 
+#include "viewport.h"
+
 typedef std::vector<std::string> Lines;
 
 class View {
   public:
+    struct Locator {
+        int offset;
+        Point locate;
+
+        int lineIndex() const { return offset + locate.row; }
+    };
+
     int top, pos, xpos, y, rows, cols;
     Lines buffer;
+
+    Viewport bound;
+    Point cursor;
+    Locator text;
+
+//    Viewport bound(Point(), Point());
 
     View();
 
@@ -27,10 +42,12 @@ class View {
     std::string sprintf(va_list va, const char *fmt);
 
     View& moveTo();
-    View& moveTo(int r, int c);
+    View& moveTo(int row, int col);
+    View& moveTo(const Point &pos);
 
     View& insln();
     View& delln();
+
 };
 
 #endif

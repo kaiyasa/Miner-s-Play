@@ -1,0 +1,20 @@
+
+#ifndef __APPLICATION__
+#define __APPLICATION__
+
+#include <cstdio>
+
+#include "tui"
+
+class Application
+{
+  public:
+    Application();
+    ~Application();
+
+    void run(FILE *inFile);
+
+    Tui sio;
+};
+
+#endif

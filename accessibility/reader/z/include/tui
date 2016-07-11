@@ -1,0 +1,32 @@
+
+#ifndef __TUI__
+#define __TUI__
+
+#include <string>
+#include <memory>
+
+#include "point"
+
+class Tui
+{
+  public:
+    Tui();
+    ~Tui();
+
+    int getKeycode();
+    std::string getKeyname(int keyCode);
+
+    Tui& moveTo(int row, int col);
+    Tui& moveTo(Point pos);
+
+    Tui& print(const char *text);
+    Tui& print(const std::string& text);
+
+    void refresh();
+
+  private:
+    struct data;
+    std::unique_ptr<data> d_ptr;
+};
+
+#endif

@@ -22,4 +22,4 @@ clean:
 q: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -lncurses -lspeechd
 
-q.o: q.cpp application.h description.h io.h misc.h speech.h ui.h view.h
+q.o: q.cpp application.h description.h io.h misc.h speech.h ui.h view.h viewport.h point.h

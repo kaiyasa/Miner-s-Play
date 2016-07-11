@@ -1,0 +1,72 @@
+
+#ifndef __IO__
+#define __IO__
+
+#include <cstdio>
+#include <vector>
+#include <algorithm>
+#include <utility>
+
+
+class Page {
+  public:
+    typedef char        value_type;
+    typedef value_type* pointer;
+    typedef const value_type* const_pointer;
+    typedef int         size_type;
+
+    pointer   mem;
+    size_type limit;
+
+    Page()               : Page(8192) {}
+    Page(size_type size) { allocate(size); }
+
+    Page(const Page& that) { 
+        allocate(that.limit);
+        std::copy(that.begin(), that.end(), mem);
+    }
+
+    Page(Page&& that) { 
+        std::swap(mem, that.mem);
+        std::swap(limit, that.limit);
+    }
+
+    ~Page() { deallocate(); }
+
+    Page& operator =(const Page& that) {
+        if (that.limit > limit) {
+            deallocate();
+            allocate(that.limit);
+        }
+        std::copy(that.begin(), that.end(), mem);
+    }
+
+    pointer begin()             { return mem; }
+    const_pointer begin() const { return mem; }
+    pointer end()               { return mem + limit; }
+    const_pointer end() const   { return mem + limit; }
+
+    size_type size() const { return limit; }
+    size_type restrict(size_type n) {
+        if (n < limit) limit = n;
+        return limit;
+    }
+  private:
+    void allocate(size_type n) {
+        mem = new value_type[limit = n];
+    }
+
+    void deallocate() {
+        if (mem) {
+            delete[] mem;
+            mem = nullptr;
+        }
+    }
+};
+
+struct TextBuffer {
+    std::vector<Page>          page;
+    std::vector<Page::pointer> line;
+};
+
+#endif

@@ -8,27 +8,30 @@ void display(View &view) {
     clear();
     view.moveTo(0, 0);
 
-    int last = min(view.buffer.size(), view.top + view.rows);
-    for(auto row = view.top; row < last; ++row)
-        view.print(row - view.top, view.xpos, view.buffer[row]);
+    int offset = view.locate.offset;
+    int last = min(view.buffer.size(), offset + view.bound.height());
+    for(auto row = offset; row < last; ++row)
+        view.print(row - offset, 0, view.buffer[offset + row]);
     view.moveTo();
-    refresh();
 }
 
 void moveDown(View &view) {
-    if (view.location() == view.buffer.size() - 1)
+    if (view.locate.lineIndex() == view.buffer.size() - 1)
         return;
 
-    if (view.pos == view.rows - 1) {
-        ++view.top;
+    if (view.locate.row == view.bound.height() - 1) {
+        ++view.locate.offset;
+
         view.moveTo(0, 0)
             .delln()
-            .moveTo(view.pos, 0)
+            .moveTo(view.locate.row, 0)
             .insln()
             .print(view.currentLine())
             .moveTo();
-    } else
-        ++view.pos;
+    } else {
+        ++view.locate.row;
+        ++view.cursor.row;
+    }
 }
 
 void moveUp(View &view) {

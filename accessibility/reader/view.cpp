@@ -76,12 +76,18 @@ string View::sprintf(va_list va, const char *fmt) {
 View& View::moveTo()
 {
     int last = currentLine().empty() ? 0 : currentLine().size() - 1;
-    return moveTo(pos, min(xpos, last));
+    return moveTo(Point(pos, min(xpos, last)));
 }
 
-View& View::moveTo(int r, int c)
+View& View::moveTo(int row, int col)
 {
-    wmove(stdscr, y + r, c);
+    return moveTo(Point(row, col));
+}
+
+View& View::moveTo(const Point &pos)
+{
+    cursor = bound.top() + pos;
+    wmove(stdscr, cursor.row, cursor.col);
     return *this;
 }
 
