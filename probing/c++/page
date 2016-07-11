@@ -1,0 +1,35 @@
+
+#ifndef APP_PAGE
+#define APP_PAGE
+
+class Page {
+    typedef int         size_type;
+    typedef char        value_type;
+    typedef value_type* pointer;
+
+    pointer   mem;
+    size_type size;
+
+    void deallocate();
+    pointer allocate(size_type n);
+
+    void acquire(Page& other);
+    void copy(const Page& other);
+
+  public:
+    explicit Page(int n = 1 << 20);
+    ~Page();
+
+    Page(const Page& other);
+    Page(Page&& other);
+
+    Page& operator =(const Page& other);
+    Page& operator =(Page&& other);
+
+    pointer begin() const;
+    pointer end()   const;
+
+    size_type limit(size_type n);
+};
+
+#endif
