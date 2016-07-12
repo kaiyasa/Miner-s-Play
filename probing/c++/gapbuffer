@@ -1,0 +1,49 @@
+
+#ifndef APP_PAGE
+#define APP_PAGE
+
+#include <string>
+
+class GapBuffer {
+  public:
+    typedef int         size_type;
+    typedef char        value_type;
+    typedef value_type* pointer;
+
+private:
+    pointer   _mem;
+    size_type _size, _presize, _postsize;
+
+    void    deallocate();
+    pointer allocate(size_type n);
+
+    void acquire(GapBuffer& other);
+    void copy(const GapBuffer& other);
+
+    void forwardInsertion();
+    void backwardInsertion();
+    void moveInsertion(int distance);
+
+  public:
+    GapBuffer(pointer buf, size_type used, size_type size);
+    ~GapBuffer();
+
+    GapBuffer(const GapBuffer& other);
+    GapBuffer(GapBuffer&& other);
+
+    GapBuffer& operator =(const GapBuffer& other);
+    GapBuffer& operator =(GapBuffer&& other);
+
+    pointer begin() const;
+    pointer end()   const;
+
+    size_type capacity() const;
+    size_type size() const;
+
+    GapBuffer& insertionAt(size_type pos);
+
+    GapBuffer& insert(const value_type& c);
+    GapBuffer& insert(const std::string& data);
+};
+
+#endif
